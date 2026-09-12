@@ -39,8 +39,18 @@ jobs:
       - name: Guardar el crudo en el repositorio
         if: always()
         run: |
+          mkdir -p raw
+          if [ -z "$(find raw -type f -name '*.json.gz' 2>/dev/null)" ]; then
+            echo "No hay datos en bruto que guardar en esta ejecucion."
+            exit 0
+          fi
           git config user.name  "robot-appempleo"
           git config user.email "robot@users.noreply.github.com"
-          git add raw/
-          git diff --staged --quiet || git commit -m "crudo $(date -u +%Y-%m-%d)"
-          git push
+          git add raw
+          if git diff --staged --quiet; then
+            echo "Sin cambios que registrar."
+          else
+            git commit -m "crudo $(date -u +%Y-%m-%d)"
+            git pull --rebase --autostash
+            git push
+          fi
