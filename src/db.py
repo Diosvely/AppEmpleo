@@ -29,6 +29,14 @@ def comprobar_entorno() -> None:
             "y que el valor no esta vacio."
         )
 
+    clave = os.environ["SUPABASE_SERVICE_KEY"].strip()
+    if clave.startswith("sb_publishable_"):
+        raise SystemExit(
+            "El secreto SUPABASE_SERVICE_KEY contiene la clave PUBLICA "
+            "(sb_publishable_...). Hace falta la SECRETA, la que empieza "
+            "por sb_secret_... en Supabase > Settings > API Keys."
+        )
+
     url = os.environ["SUPABASE_URL"].strip()
     if "supabase.co" not in url and "supabase.in" not in url:
         raise SystemExit(
@@ -50,18 +58,28 @@ class Supabase:
     def __init__(self):
         self.url = normalizar_url(os.environ["SUPABASE_URL"])
         clave = os.environ["SUPABASE_SERVICE_KEY"].strip()
+
+        # Supabase tiene dos generaciones de claves conviviendo:
+        #   - nuevas:  sb_secret_...  (cadena corta, NO es un JWT)
+        #   - antiguas: service_role  (token largo que empieza por eyJ)
+        # Las nuevas van solo en la cabecera apikey. Las antiguas admiten
+        # ademas Authorization: Bearer. Enviamos lo que corresponda.
         self.cabeceras = {
             "apikey": clave,
-            "Authorization": f"Bearer {clave}",
             "Content-Type": "application/json",
         }
+        if clave.startswith("eyJ"):
+            self.cabeceras["Authorization"] = f"Bearer {clave}"
 
     def _comprobar(self, r: requests.Response) -> None:
         if r.status_code in (401, 403):
             raise SystemExit(
-                "Supabase rechaza la clave (codigo " + str(r.status_code) + "). "
-                "Revisa el secreto SUPABASE_SERVICE_KEY: tiene que ser la clave "
-                "service_role, no la anon."
+                "Supabase rechaza la clave (codigo " + str(r.status_code) + ").\n"
+                "Necesitas la clave SECRETA, no la publica.\n"
+                "  Supabase > Settings > API Keys\n"
+                "  Vale la que empieza por  sb_secret_...\n"
+                "  (o, si tu proyecto aun usa las antiguas, la service_role)\n"
+                "NO vale la que empieza por sb_publishable_ ni la anon."
             )
         if r.status_code == 404:
             raise SystemExit(
