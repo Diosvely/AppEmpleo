@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import normalizar as nz
 from conectores.adzuna import CODIGO_FUENTE, Adzuna, a_formato_comun
-from db import Supabase
+from db import Supabase, comprobar_entorno
 
 RAIZ = Path(__file__).resolve().parent.parent
 LOTE = 200
@@ -97,6 +97,7 @@ def preparar(anuncio: dict, perfil: dict, umbral_bruto: float) -> dict | None:
 
 
 def main() -> int:
+    comprobar_entorno()
     perfil = cargar_perfil()
     momento = datetime.now(timezone.utc)
     sal = perfil["salario"]
