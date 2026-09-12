@@ -1,0 +1,46 @@
+name: Ingesta diaria
+
+on:
+  schedule:
+    # 06:15 UTC = 07:15 en Canarias. Ajusta la hora si quieres.
+    - cron: "15 6 * * *"
+  workflow_dispatch:        # permite lanzarlo a mano desde la web
+
+permissions:
+  contents: write           # necesario para guardar el crudo en el repo
+
+concurrency:
+  group: ingesta
+  cancel-in-progress: false
+
+jobs:
+  ingesta:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Ejecutar la ingesta
+        env:
+          ADZUNA_APP_ID:        ${{ secrets.ADZUNA_APP_ID }}
+          ADZUNA_APP_KEY:       ${{ secrets.ADZUNA_APP_KEY }}
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python src/main.py
+
+      - name: Guardar el crudo en el repositorio
+        if: always()
+        run: |
+          git config user.name  "robot-appempleo"
+          git config user.email "robot@users.noreply.github.com"
+          git add raw/
+          git diff --staged --quiet || git commit -m "crudo $(date -u +%Y-%m-%d)"
+          git push
