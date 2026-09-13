@@ -84,11 +84,19 @@ def calcular_huella(empresa_norm: str, titulo_norm: str, provincia: str) -> str:
 
 
 def detectar_modalidad(titulo: str, descripcion: str, ubicacion: str) -> str:
+    """
+    Cuatro estados. 'nacional' es el caso de los anuncios publicados sin
+    plaza concreta: la fuente pone solo "Espana". No es remoto confirmado,
+    pero tampoco es una plaza atada a una ciudad, asi que va primero en la
+    cola de revision.
+    """
     texto = normalizar(f"{titulo} {descripcion} {ubicacion}")
     if any(p in texto for p in PALABRAS_HIBRIDO):
         return "hibrido"
     if any(normalizar(p) in texto for p in PALABRAS_REMOTO):
         return "remoto"
+    if normalizar(ubicacion) in ("espana", "spain"):
+        return "nacional"
     return "desconocida"
 
 
@@ -212,7 +220,7 @@ def evaluar_alcance(provincia: str, modalidad: str, pais: str, perfil: dict,
         if modalidad == "hibrido":
             # hibrido en la peninsula exige pisar oficina: no sirve
             continue
-        if modalidad == "desconocida":
+        if modalidad in ("desconocida", "nacional"):
             # la fuente no dice si hay teletrabajo. Se mira a mano.
             resultado = "revisar"
 
