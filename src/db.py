@@ -4,8 +4,14 @@ Las claves se leen del entorno y nunca se escriben en el codigo.
 """
 
 import os
+import time
 
 import requests
+
+# Codigos que merecen reintento: el servidor no esta listo, pero lo estara.
+CODIGOS_REINTENTABLES = {408, 425, 429, 500, 502, 503, 504}
+INTENTOS = 4
+ESPERA_BASE = 4  # segundos: 4, 8, 16...
 
 VARIABLES_NECESARIAS = [
     "ADZUNA_APP_ID",
@@ -71,6 +77,40 @@ class Supabase:
         if clave.startswith("eyJ"):
             self.cabeceras["Authorization"] = f"Bearer {clave}"
 
+    def _pedir(self, metodo: str, ruta: str, **kwargs) -> requests.Response:
+        """
+        Llama a Supabase reintentando si el servidor no responde.
+        Un proyecto gratuito puede estar despertando, y eso tarda.
+        """
+        # una llamada puede anadir cabeceras propias sin pisar las fijas
+        cabeceras = {**self.cabeceras, **kwargs.pop("headers", {})}
+        ultimo_fallo = None
+        for intento in range(1, INTENTOS + 1):
+            try:
+                r = requests.request(metodo, f"{self.url}{ruta}",
+                                     headers=cabeceras, **kwargs)
+                if r.status_code in CODIGOS_REINTENTABLES and intento < INTENTOS:
+                    espera = ESPERA_BASE * (2 ** (intento - 1))
+                    print(f"Supabase respondio {r.status_code}. "
+                          f"Reintento {intento}/{INTENTOS - 1} en {espera}s...")
+                    time.sleep(espera)
+                    continue
+                return r
+            except (requests.Timeout, requests.ConnectionError) as e:
+                ultimo_fallo = e
+                if intento < INTENTOS:
+                    espera = ESPERA_BASE * (2 ** (intento - 1))
+                    print(f"Sin respuesta de Supabase. "
+                          f"Reintento {intento}/{INTENTOS - 1} en {espera}s...")
+                    time.sleep(espera)
+
+        raise SystemExit(
+            "Supabase no responde despues de varios intentos.\n"
+            "Entra en el panel de Supabase y comprueba que el proyecto esta "
+            "activo y no en pausa. Si lo esta, vuelve a lanzar el workflow.\n"
+            f"Ultimo fallo: {ultimo_fallo}"
+        )
+
     def _comprobar(self, r: requests.Response) -> None:
         if r.status_code in (401, 403):
             raise SystemExit(
@@ -86,30 +126,30 @@ class Supabase:
                 "Supabase responde 404. Lo mas probable es que el esquema no "
                 "este creado: pega sql/01_esquema.sql en el SQL Editor y pulsa Run."
             )
+        if r.status_code >= 500:
+            raise SystemExit(
+                f"Supabase devuelve un error de servidor ({r.status_code}) y no "
+                "se recupera tras varios reintentos. No es culpa del codigo: "
+                "revisa el estado del proyecto en el panel de Supabase y vuelve "
+                "a lanzar el workflow mas tarde."
+            )
         r.raise_for_status()
 
     def _rpc(self, funcion: str, cuerpo: dict):
-        r = requests.post(
-            f"{self.url}/rest/v1/rpc/{funcion}",
-            headers=self.cabeceras, json=cuerpo, timeout=90,
-        )
+        r = self._pedir("POST", f"/rest/v1/rpc/{funcion}", json=cuerpo, timeout=90)
         self._comprobar(r)
         return r.json() if r.text else None
 
     def abrir_ejecucion(self, fuente: str) -> str:
-        r = requests.post(
-            f"{self.url}/rest/v1/ejecucion",
-            headers={**self.cabeceras, "Prefer": "return=representation"},
-            json={"fuente": fuente}, timeout=30,
-        )
+        r = self._pedir("POST", "/rest/v1/ejecucion",
+                        headers={"Prefer": "return=representation"},
+                        json={"fuente": fuente}, timeout=30)
         self._comprobar(r)
         return r.json()[0]["id"]
 
     def cerrar_ejecucion(self, id_ejecucion: str, estado: str, llamadas: int,
                          vistas: int, nuevas: int, error: str | None = None):
-        r = requests.patch(
-            f"{self.url}/rest/v1/ejecucion",
-            headers=self.cabeceras,
+        r = self._pedir("PATCH", "/rest/v1/ejecucion",
             params={"id": f"eq.{id_ejecucion}"},
             json={
                 "terminada_en": "now()",
@@ -119,8 +159,7 @@ class Supabase:
                 "ofertas_nuevas": nuevas,
                 "mensaje_error": (error or "")[:2000] or None,
             },
-            timeout=30,
-        )
+            timeout=30)
         self._comprobar(r)
 
     def ingerir(self, ofertas: list[dict]) -> dict:
