@@ -71,6 +71,26 @@ exclusiones_titulo:
   - promotora
   - captador
   - captadora
+  - intern
+  - interna de datos
+  - stage
+  - graduate program
+  - "online data analyst"
+  - rater
+  - evaluador de busqueda
+  - encuestador
+  - encuestadora
+
+# ---------------------------------------------------------------------
+# NIVEL DEL PUESTO
+# No descarta nada: solo etiqueta, para que puedas apartar de un vistazo
+# lo que te queda grande o pequeno sin perderlo de vista.
+# ---------------------------------------------------------------------
+niveles:
+  directivo: [director, directora, "head of", chief, cfo, cdo, vp, "vice president"]
+  lead: [lead, manager, jefe, jefa, responsable, principal, "team lead"]
+  senior: [senior, sr, experto, experta]
+  junior: [junior, jr, becario, trainee, graduate, "recien titulado", entry]
 
 # ---------------------------------------------------------------------
 # CANALES
@@ -93,13 +113,21 @@ canales:
       acepta_hibrido: true
       ambito_remoto: "Espana"
     consultas_api:
-      - "controller"
-      - "control de gestion"
-      - "analista financiero"
-      - "analista de costes"
-      - "responsable financiero"
-      - "contable"
-      - "administrativo contable"
+      - texto: "controller"
+        paginas: 3
+      - texto: "control de gestion"
+        paginas: 3
+      - texto: "analista financiero"
+        paginas: 3
+      - texto: "analista de costes"
+        paginas: 3
+      - texto: "responsable financiero"
+        paginas: 2
+      # "contable" devuelve muchisimo y aporta poco: se le baja el volumen
+      - texto: "contable"
+        paginas: 1
+      - texto: "administrativo contable"
+        paginas: 1
     grupos:
       - grupo: "Controller"
         prioridad: 1
@@ -175,11 +203,16 @@ canales:
       acepta_hibrido: true
       ambito_remoto: "Espana"
     consultas_api:
-      - "analista de datos"
-      - "data analyst"
-      - "business intelligence"
-      - "power bi"
-      - "analytics"
+      - texto: "analista de datos"
+        paginas: 3
+      - texto: "data analyst"
+        paginas: 3
+      - texto: "business intelligence"
+        paginas: 3
+      - texto: "power bi"
+        paginas: 3
+      - texto: "analytics"
+        paginas: 3
     grupos:
       - grupo: "Analista de datos"
         prioridad: 1
