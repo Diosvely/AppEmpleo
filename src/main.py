@@ -53,8 +53,9 @@ def preparar(anuncio: dict, perfil: dict, umbral_bruto: float) -> dict | None:
 
     modalidad = nz.detectar_modalidad(c["titulo"], c["descripcion"] or "",
                                       c["ubicacion_texto"] or "")
-    encaja = nz.evaluar_geografia(c["provincia"] or "", modalidad, c["pais"] or "",
-                                  perfil, clas["canal_a"], clas["canal_b"])
+    alcance = nz.evaluar_alcance(c["provincia"] or "", modalidad, c["pais"] or "",
+                                 perfil, clas["canal_a"], clas["canal_b"])
+    nivel = nz.detectar_nivel(c["titulo"], perfil)
 
     titulo_norm = nz.normalizar_titulo(c["titulo"])
     empresa_norm = nz.normalizar_empresa(c["empresa"] or "")
@@ -89,7 +90,8 @@ def preparar(anuncio: dict, perfil: dict, umbral_bruto: float) -> dict | None:
         "canal_b": clas["canal_b"],
         "grupo_rol": clas["grupo_rol"],
         "prioridad": clas["prioridad"],
-        "encaja_geografia": encaja,
+        "alcance": alcance,
+        "nivel": nivel,
         "publicada_en": nz.a_fecha(c["publicada_en"]),
         "fuente": CODIGO_FUENTE,
         "id_origen": c["id_origen"],
