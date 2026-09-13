@@ -49,6 +49,29 @@ ANUNCIOS_DE_PRUEBA = [
      "description": "Practicas remuneradas analista financiero.",
      "redirect_url": "https://x/6", "salary_min": None, "salary_max": None,
      "salary_is_predicted": "0", "contract_type": None, "created": "2026-09-11T08:00:00Z"},
+    {"id": 7, "title": "Senior Data Analyst - Treasury", "company": {"display_name": "Banco Grande"},
+     "location": {"display_name": "Madrid", "area": ["Spain", "Comunidad de Madrid", "Madrid", "Madrid"]},
+     "description": "Analisis de datos de tesoreria.",
+     "redirect_url": "https://x/7", "salary_min": None, "salary_max": None,
+     "salary_is_predicted": "0", "contract_type": None, "created": "2026-09-11T08:00:00Z"},
+
+    {"id": 8, "title": "Data Analyst Intern (Korean Speaker)", "company": {"display_name": "Startup"},
+     "location": {"display_name": "Barcelona", "area": ["Spain", "Cataluna", "Barcelona", "Barcelona"]},
+     "description": "Programa de practicas.",
+     "redirect_url": "https://x/8", "salary_min": None, "salary_max": None,
+     "salary_is_predicted": "0", "contract_type": None, "created": "2026-09-11T08:00:00Z"},
+
+    {"id": 9, "title": "Director of FP&A and Analytics", "company": {"display_name": "Multinacional"},
+     "location": {"display_name": "Madrid", "area": ["Spain", "Comunidad de Madrid", "Madrid", "Madrid"]},
+     "description": "Direccion del area de planificacion.",
+     "redirect_url": "https://x/9", "salary_min": None, "salary_max": None,
+     "salary_is_predicted": "0", "contract_type": None, "created": "2026-09-11T08:00:00Z"},
+
+    {"id": 10, "title": "Online Data Analyst - Spanish (ES)", "company": {"display_name": "Plataforma"},
+     "location": {"display_name": "Madrid", "area": ["Spain", "Comunidad de Madrid", "Madrid", "Madrid"]},
+     "description": "Microtareas de evaluacion.",
+     "redirect_url": "https://x/10", "salary_min": None, "salary_max": None,
+     "salary_is_predicted": "0", "contract_type": None, "created": "2026-09-11T08:00:00Z"},
 ]
 
 
@@ -68,9 +91,9 @@ def main():
         canal = ("A" if p["canal_a"] else "") + ("B" if p["canal_b"] else "")
         huellas.setdefault(p["huella"], []).append(anuncio["id"])
         print(f"[CANAL {canal}] {p['titulo']}")
-        print(f"    grupo={p['grupo_rol']}  prioridad={p['prioridad']}  "
+        print(f"    grupo={p['grupo_rol']}  nivel={p['nivel']}  prioridad={p['prioridad']}  "
               f"modalidad={p['modalidad']}  contrato={p['contrato']}")
-        print(f"    provincia={p['provincia']}  alcanzable={p['encaja_geografia']}  "
+        print(f"    provincia={p['provincia']}  alcance={p['alcance']}  "
               f"salario={p['cumple_salario']}")
         print(f"    huella={p['huella'][:12]}...")
 
