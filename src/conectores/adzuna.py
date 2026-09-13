@@ -55,26 +55,34 @@ class Adzuna:
         respuesta.raise_for_status()
         return respuesta.json()
 
-    def recolectar(self, consultas: list[str]) -> tuple[list[dict], list[str]]:
-        """Devuelve (anuncios en crudo, avisos)."""
+    def recolectar(self, consultas: list[dict]) -> tuple[list[dict], list[str]]:
+        """
+        consultas: [{"texto": "controller", "paginas": 3}, ...]
+        Cada consulta lleva su propio numero de paginas, para no gastar
+        cupo en terminos que devuelven mucho ruido.
+        Devuelve (anuncios en crudo, avisos).
+        """
         anuncios: list[dict] = []
         avisos: list[str] = []
-        paginas = self.opciones.get("paginas_por_consulta", 3)
+        por_defecto = self.opciones.get("paginas_por_consulta", 3)
 
         for consulta in consultas:
+            texto = consulta["texto"] if isinstance(consulta, dict) else consulta
+            paginas = consulta.get("paginas", por_defecto) if isinstance(consulta, dict) else por_defecto
+
             for pagina in range(1, paginas + 1):
                 try:
-                    datos = self._pedir(consulta, pagina)
+                    datos = self._pedir(texto, pagina)
                 except CupoAgotado as e:
                     avisos.append(str(e))
                     return anuncios, avisos
                 except requests.RequestException as e:
-                    avisos.append(f"Fallo en '{consulta}' pagina {pagina}: {e}")
+                    avisos.append(f"Fallo en '{texto}' pagina {pagina}: {e}")
                     break
 
                 resultados = datos.get("results", [])
                 for r in resultados:
-                    r["_consulta"] = consulta
+                    r["_consulta"] = texto
                 anuncios.extend(resultados)
 
                 if len(resultados) < self.opciones.get("resultados_por_pagina", 50):
