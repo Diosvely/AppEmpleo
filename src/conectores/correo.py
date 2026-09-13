@@ -12,6 +12,7 @@ import email
 import email.message
 import imaplib
 import os
+from datetime import datetime, timedelta, timezone
 from email.header import decode_header, make_header
 
 SERVIDOR = "imap.gmail.com"
@@ -55,20 +56,28 @@ class Buzon:
                 pass
             self.conexion.logout()
 
-    def leer_etiqueta(self, etiqueta: str, solo_no_leidos: bool = True,
-                      limite: int = 200) -> list[tuple[bytes, email.message.Message]]:
+    def leer_etiqueta(self, etiqueta: str, dias_atras: int = 14,
+                      limite: int = 300) -> list[tuple[bytes, email.message.Message]]:
         """
         Devuelve [(uid, mensaje), ...] de una etiqueta de Gmail.
-        En Gmail las etiquetas se comportan como carpetas IMAP.
+
+        Filtra por fecha, no por "no leido". La marca de leido la controla
+        el usuario desde su movil, asi que no puede decidir que procesa el
+        robot: si abres una alerta en el telefono, desaparecia para siempre.
+        Repetir ofertas no importa: la huella las deduplica.
         """
         estado, _ = self.conexion.select(f'"{etiqueta}"', readonly=False)
         if estado != "OK":
-            print(f"AVISO: no existe la etiqueta '{etiqueta}'. Se omite.")
+            print(f"AVISO: no existe la etiqueta '{etiqueta}'. "
+                  f"Comprueba el nombre exacto en Gmail.")
             return []
 
-        criterio = "(UNSEEN)" if solo_no_leidos else "(ALL)"
+        desde = (datetime.now(timezone.utc) - timedelta(days=dias_atras))
+        criterio = f'(SINCE "{desde.strftime("%d-%b-%Y")}")'
         estado, datos = self.conexion.search(None, criterio)
         if estado != "OK" or not datos or not datos[0]:
+            print(f"AVISO: '{etiqueta}' no tiene correos de los ultimos "
+                  f"{dias_atras} dias.")
             return []
 
         uids = datos[0].split()[-limite:]
@@ -78,6 +87,7 @@ class Buzon:
             if estado != "OK" or not crudo or not crudo[0]:
                 continue
             mensajes.append((uid, email.message_from_bytes(crudo[0][1])))
+        print(f"  {etiqueta}: {len(mensajes)} correos en los ultimos {dias_atras} dias")
         return mensajes
 
     def marcar_procesado(self, uid: bytes) -> None:

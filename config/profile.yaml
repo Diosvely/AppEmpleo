@@ -263,6 +263,15 @@ canales:
           - "data warehouse"
 
 # ---------------------------------------------------------------------
+# ALERTAS POR CORREO
+# Cuantos dias hacia atras se miran las etiquetas de Gmail. Se puede subir
+# puntualmente para recuperar correos viejos: los duplicados se descartan
+# solos, asi que no hay riesgo.
+# ---------------------------------------------------------------------
+correo:
+  dias_atras: 30
+
+# ---------------------------------------------------------------------
 # LIMITES DE LA API
 # El plan de prueba de Adzuna tiene cupo. Estos topes evitan pasarse.
 # ---------------------------------------------------------------------

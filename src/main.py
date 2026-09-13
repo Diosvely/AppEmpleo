@@ -196,7 +196,8 @@ def ingerir_correo(bd: Supabase, perfil: dict, umbral_bruto: float) -> None:
     try:
         with Buzon() as buzon:
             for etiqueta, codigo in ETIQUETAS.items():
-                for uid, mensaje in buzon.leer_etiqueta(etiqueta):
+                for uid, mensaje in buzon.leer_etiqueta(
+                        etiqueta, perfil.get('correo', {}).get('dias_atras', 14)):
                     tema = asunto(mensaje)
                     if codigo == CODIGO_LINKEDIN:
                         hallazgos = interpretar_linkedin(
