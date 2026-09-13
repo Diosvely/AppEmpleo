@@ -145,6 +145,9 @@ canales:
         prioridad: 1
         sinonimos:
           - "control de gestion"
+          - "control financiero"
+          - "control economico"
+          - "control presupuestario"
           - "analista de control de gestion"
           - "tecnico de control de gestion"
           - "responsable de control de gestion"
@@ -168,6 +171,9 @@ canales:
           - "fpa"
           - "planificacion financiera"
           - "analista de negocio financiero"
+          - "financial reporting"
+          - "reporting financiero"
+          - "analista de reporting financiero"
       - grupo: "Responsable financiero"
         prioridad: 2
         sinonimos:

@@ -18,8 +18,15 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import normalizar as nz
+import geografia as geo
 from conectores.adzuna import CODIGO_FUENTE, Adzuna, a_formato_comun
+from conectores.alertas_correo import (CODIGO_INFOJOBS, CODIGO_LINKEDIN,
+                                       interpretar_infojobs, interpretar_linkedin)
+from conectores.correo import Buzon, asunto, extraer_parte
 from db import Supabase, comprobar_entorno
+
+ETIQUETAS = {"AppEmpleo/LinkedIn": CODIGO_LINKEDIN,
+             "AppEmpleo/InfoJobs": CODIGO_INFOJOBS}
 
 RAIZ = Path(__file__).resolve().parent.parent
 LOTE = 200
@@ -30,9 +37,10 @@ def cargar_perfil() -> dict:
         return yaml.safe_load(f)
 
 
-def guardar_crudo(anuncios: list[dict], momento: datetime) -> Path:
+def guardar_crudo(anuncios: list[dict], momento: datetime,
+                  fuente: str = CODIGO_FUENTE) -> Path:
     """El crudo se guarda comprimido en el repo. Nunca se modifica."""
-    carpeta = RAIZ / "raw" / CODIGO_FUENTE / momento.strftime("%Y/%m/%d")
+    carpeta = RAIZ / "raw" / fuente / momento.strftime("%Y/%m/%d")
     carpeta.mkdir(parents=True, exist_ok=True)
     destino = carpeta / f"{momento.strftime('%Y%m%d_%H%M%S')}.json.gz"
     with gzip.open(destino, "wt", encoding="utf-8") as f:
@@ -98,6 +106,136 @@ def preparar(anuncio: dict, perfil: dict, umbral_bruto: float) -> dict | None:
     }
 
 
+def preparar_correo(oferta: dict, perfil: dict, umbral_bruto: float) -> dict | None:
+    """
+    Traduce una oferta sacada de una alerta por correo al mismo formato que
+    usa Adzuna, para que siga exactamente la misma tuberia.
+    """
+    clas = nz.clasificar(oferta["titulo"], "", perfil)
+    if not (clas["canal_a"] or clas["canal_b"]):
+        return None
+
+    ubicacion = oferta.get("ubicacion_texto") or ""
+    provincia = geo.provincia_de(ubicacion)
+
+    # la modalidad que declara el portal manda sobre lo que adivinemos
+    modalidad = oferta.get("modalidad_fuente")
+    if not modalidad:
+        modalidad = nz.detectar_modalidad(oferta["titulo"], "", ubicacion)
+        if modalidad == "desconocida" and geo.es_ambito_nacional(ubicacion):
+            modalidad = "nacional"
+
+    contrato = oferta.get("contrato_fuente") or nz.detectar_contrato(
+        oferta["titulo"], "", None)
+    if contrato in perfil["contrato"]["excluidos"]:
+        return None
+
+    alcance = nz.evaluar_alcance(provincia or "", modalidad, "Espana",
+                                 perfil, clas["canal_a"], clas["canal_b"])
+
+    # InfoJobs a veces da mensual: lo pasamos a bruto anual para comparar
+    minimo, maximo = oferta.get("salario_min"), oferta.get("salario_max")
+    if oferta.get("salario_periodo") == "mensual":
+        minimo = minimo * perfil["salario"]["pagas_anuales"] if minimo else None
+        maximo = maximo * perfil["salario"]["pagas_anuales"] if maximo else None
+    publicado = bool(minimo or maximo)
+
+    titulo_norm = nz.normalizar_titulo(oferta["titulo"])
+    empresa_norm = nz.normalizar_empresa(oferta.get("empresa") or "")
+
+    # InfoJobs oculta la empresa: sin ella, la huella usa el municipio para
+    # no fundir ofertas distintas bajo una misma "empresa vacia"
+    semilla_empresa = empresa_norm or f"sinempresa-{nz.normalizar(ubicacion)}"
+
+    return {
+        "huella": nz.calcular_huella(semilla_empresa, titulo_norm, provincia or ""),
+        "titulo": oferta["titulo"],
+        "titulo_norm": titulo_norm,
+        "empresa": oferta.get("empresa"),
+        "empresa_norm": empresa_norm or None,
+        "ubicacion_texto": ubicacion or None,
+        "pais": "Espana",
+        "comunidad": None,
+        "provincia": provincia,
+        "municipio": ubicacion or None,
+        "modalidad": modalidad,
+        "contrato": contrato,
+        "jornada": None,
+        "salario_min": minimo,
+        "salario_max": maximo,
+        "salario_periodo": "anual",
+        "salario_publicado": publicado,
+        "salario_estimado": False,
+        "salario_bruto_anual_min": minimo,
+        "salario_bruto_anual_max": maximo,
+        "cumple_salario": nz.evaluar_salario(minimo, maximo, umbral_bruto, publicado),
+        "descripcion": oferta.get("descripcion"),
+        "url": oferta.get("url"),
+        "canal_a": clas["canal_a"],
+        "canal_b": clas["canal_b"],
+        "grupo_rol": clas["grupo_rol"],
+        "prioridad": clas["prioridad"],
+        "alcance": alcance,
+        "nivel": nz.detectar_nivel(oferta["titulo"], perfil),
+        "publicada_en": None,
+        "fuente": oferta["fuente"],
+        "id_origen": oferta["id_origen"],
+    }
+
+
+def ingerir_correo(bd: Supabase, perfil: dict, umbral_bruto: float) -> None:
+    """Lee las alertas de LinkedIn e InfoJobs desde Gmail."""
+    if not os.environ.get("GMAIL_USUARIO", "").strip():
+        print("Sin credenciales de Gmail: se omite la fuente correo.")
+        return
+
+    momento = datetime.now(timezone.utc)
+    id_ejecucion = bd.abrir_ejecucion("correo")
+    crudos, preparadas, procesados = [], [], []
+
+    try:
+        with Buzon() as buzon:
+            for etiqueta, codigo in ETIQUETAS.items():
+                for uid, mensaje in buzon.leer_etiqueta(etiqueta):
+                    tema = asunto(mensaje)
+                    if codigo == CODIGO_LINKEDIN:
+                        hallazgos = interpretar_linkedin(
+                            extraer_parte(mensaje, "text/plain") or "")
+                    else:
+                        hallazgos = interpretar_infojobs(
+                            extraer_parte(mensaje, "text/html") or "", tema)
+
+                    crudos.append({"etiqueta": etiqueta, "asunto": tema,
+                                   "ofertas": hallazgos})
+                    preparadas.extend(
+                        p for p in (preparar_correo(o, perfil, umbral_bruto)
+                                    for o in hallazgos) if p)
+                    procesados.append((buzon, uid))
+                    print(f"  {etiqueta}: '{tema[:55]}' -> {len(hallazgos)} ofertas")
+
+            guardar_crudo(crudos, momento, "correo")
+
+            nuevas = actualizadas = 0
+            for i in range(0, len(preparadas), LOTE):
+                r = bd.ingerir(preparadas[i:i + LOTE])
+                nuevas += r.get("nuevas", 0)
+                actualizadas += r.get("actualizadas", 0)
+
+            # solo se marcan como leidos si todo fue bien
+            for buzon_, uid in procesados:
+                buzon_.marcar_procesado(uid)
+
+        bd.cerrar_ejecucion(id_ejecucion, "ok", 0, len(preparadas), nuevas)
+        print(f"CORREO  nuevas={nuevas}  actualizadas={actualizadas}  "
+              f"mensajes={len(procesados)}")
+
+    except SystemExit:
+        raise
+    except Exception as e:
+        bd.cerrar_ejecucion(id_ejecucion, "error", 0, 0, 0, str(e))
+        print(f"ERROR en la fuente correo: {e}", file=sys.stderr)
+
+
 def main() -> int:
     comprobar_entorno()
     perfil = cargar_perfil()
@@ -143,8 +281,10 @@ def main() -> int:
 
         bd.cerrar_ejecucion(id_ejecucion, "ok", cliente.llamadas,
                             len(preparadas), nuevas)
-        print(f"RESUMEN  nuevas={nuevas}  actualizadas={actualizadas}  "
+        print(f"ADZUNA  nuevas={nuevas}  actualizadas={actualizadas}  "
               f"llamadas_api={cliente.llamadas}")
+
+        ingerir_correo(bd, perfil, umbral_bruto)
         return 0
 
     except Exception as e:
