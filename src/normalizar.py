@@ -169,11 +169,29 @@ def clasificar(titulo: str, descripcion: str, perfil: dict) -> dict:
     return resultado
 
 
-def evaluar_geografia(provincia: str, modalidad: str, pais: str, perfil: dict,
-                      canal_a: bool, canal_b: bool) -> bool:
-    """True si la oferta es alcanzable para ti."""
+def detectar_nivel(titulo: str, perfil: dict) -> str:
+    """Etiqueta, no filtro. Nunca descarta una oferta."""
+    titulo_norm = normalizar_titulo(titulo)
+    for nivel in ("directivo", "lead", "senior", "junior"):
+        for marca in perfil.get("niveles", {}).get(nivel, []):
+            if _contiene_frase(titulo_norm, marca):
+                return nivel
+    return "desconocido"
+
+
+def evaluar_alcance(provincia: str, modalidad: str, pais: str, perfil: dict,
+                    canal_a: bool, canal_b: bool) -> str:
+    """
+    Tres estados, no dos:
+      alcanzable  -> encaja seguro
+      revisar     -> no se sabe. Casi siempre porque la fuente recorta la
+                     descripcion y la palabra "teletrabajo" no llega.
+      descartada  -> no encaja
+    Lo que antes era un no rotundo pasa a ser "revisar": el sistema no
+    puede tirar a la basura media Espana por falta de informacion.
+    """
     if pais and normalizar(pais) not in ("espana", "spain", ""):
-        return False
+        return "descartada"
 
     prov_norm = normalizar(provincia)
     canales = []
@@ -182,18 +200,23 @@ def evaluar_geografia(provincia: str, modalidad: str, pais: str, perfil: dict,
     if canal_b:
         canales.append(perfil["canales"]["B"])
 
+    resultado = "descartada"
     for canal in canales:
         geo = canal["geografia"]
+        en_casa = prov_norm in [normalizar(x) for x in geo["presencial_provincias"]]
+
+        if en_casa:
+            return "alcanzable"
         if modalidad == "remoto" and geo.get("acepta_remoto"):
-            return True
-        if modalidad == "hibrido" and geo.get("acepta_hibrido"):
-            # hibrido fuera de Canarias no sirve: hay que pisar oficina
-            if prov_norm in [normalizar(p) for p in geo["presencial_provincias"]]:
-                return True
+            return "alcanzable"
+        if modalidad == "hibrido":
+            # hibrido en la peninsula exige pisar oficina: no sirve
             continue
-        if prov_norm in [normalizar(p) for p in geo["presencial_provincias"]]:
-            return True
-    return False
+        if modalidad == "desconocida":
+            # la fuente no dice si hay teletrabajo. Se mira a mano.
+            resultado = "revisar"
+
+    return resultado
 
 
 def a_fecha(valor) -> str | None:
