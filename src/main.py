@@ -230,11 +230,12 @@ def ingerir_correo(bd: Supabase, perfil: dict, umbral_bruto: float) -> None:
         print(f"CORREO  nuevas={nuevas}  actualizadas={actualizadas}  "
               f"mensajes={len(procesados)}")
 
-    except SystemExit:
-        raise
-    except Exception as e:
+    except (SystemExit, Exception) as e:
+        # Un fallo en el correo no debe tumbar la ejecucion entera: lo que
+        # ya trajo Adzuna esta guardado y no se pierde. Se registra y sigue.
         bd.cerrar_ejecucion(id_ejecucion, "error", 0, 0, 0, str(e))
-        print(f"ERROR en la fuente correo: {e}", file=sys.stderr)
+        print(f"ERROR en la fuente correo (Adzuna no se ve afectado):\n{e}",
+              file=sys.stderr)
 
 
 def main() -> int:
