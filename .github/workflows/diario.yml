@@ -34,6 +34,8 @@ jobs:
           ADZUNA_APP_KEY:       ${{ secrets.ADZUNA_APP_KEY }}
           SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GMAIL_USUARIO:        ${{ secrets.GMAIL_USUARIO }}
+          GMAIL_APP_PASSWORD:   ${{ secrets.GMAIL_APP_PASSWORD }}
         run: python src/main.py
 
       - name: Guardar el crudo en el repositorio
