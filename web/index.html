@@ -56,7 +56,9 @@ main{padding:.85rem 1rem}
 .acciones button,.acciones a{flex:1;text-align:center;padding:.55rem .3rem;border-radius:7px;
   font-size:.88rem;font-weight:500;border:1px solid var(--linea);background:var(--tarjeta);
   text-decoration:none;color:var(--tinta)}
-.principal{background:var(--accion);border-color:var(--accion);color:#fff!important}
+/* La especificidad importa: .acciones a gana a .principal a secas, y dejaba
+   el fondo blanco con el texto blanco encima. Se iguala el alcance. */
+.acciones .principal{background:var(--accion);border-color:var(--accion);color:#fff}
 
 /* Hoja de aplicacion */
 dialog{border:none;border-radius:14px 14px 0 0;padding:1.2rem;width:100%;max-width:520px;
