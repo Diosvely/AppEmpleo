@@ -38,6 +38,9 @@ h1{margin:0;font-family:var(--serif);font-size:1.5rem;font-weight:600;letter-spa
 .chip{white-space:nowrap;padding:.32rem .75rem;border:1px solid var(--linea);
       border-radius:999px;background:var(--tarjeta);font-size:.86rem;color:var(--apagado)}
 .chip[aria-pressed="true"]{background:var(--tinta);border-color:var(--tinta);color:#fff}
+#buscar{width:100%;margin-top:.5rem;padding:.5rem .7rem;border:1px solid var(--linea);
+        border-radius:8px;font:inherit;font-size:.9rem;background:var(--tarjeta);color:var(--tinta)}
+#buscar::placeholder{color:var(--apagado)}
 
 /* Lista */
 main{padding:.85rem 1rem}
@@ -75,7 +78,8 @@ textarea{width:100%;border:1px solid var(--linea);border-radius:8px;padding:.6re
 /* Pie de navegacion */
 nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--tarjeta);
     border-top:1px solid var(--linea);padding-bottom:env(safe-area-inset-bottom)}
-nav button{flex:1;padding:.7rem .2rem;font-size:.8rem;color:var(--apagado)}
+nav button{flex:1;padding:.7rem .2rem;font-size:.78rem;color:var(--apagado);white-space:nowrap}
+nav .accion{flex:0 0 auto;padding:.7rem .8rem;font-size:.74rem}
 nav button[aria-current="page"]{color:var(--accion);font-weight:600;
     box-shadow:inset 0 2px 0 var(--accion)}
 
@@ -117,13 +121,16 @@ th{color:var(--apagado);font-weight:500}
     <h1 id="titulo">Bandeja</h1>
     <p class="resumen" id="resumen">Cargando…</p>
     <div class="filtros" id="filtros"></div>
+    <input id="buscar" type="search" inputmode="search" autocomplete="off"
+           placeholder="Buscar empresa, puesto o ciudad">
   </header>
   <main id="contenido"></main>
   <nav>
     <button data-vista="bandeja" aria-current="page">Bandeja</button>
     <button data-vista="candidaturas">Candidaturas</button>
     <button data-vista="embudo">Embudo</button>
-    <button id="btnSalir">Salir</button>
+    <button class="accion" id="btnIngesta">Ingestar</button>
+    <button class="accion" id="btnSalir">Salir</button>
   </nav>
 </div>
 
@@ -152,8 +159,11 @@ const $ = s => document.querySelector(s);
 const CACHE = "appempleo:bandeja";
 
 let vista = "bandeja";
-let filtro = "alcanzable";
+// Cada vista recuerda su propio filtro: los de la bandeja no significan
+// nada en candidaturas, y al volver quieres encontrarlo como lo dejaste.
+let filtros = { bandeja: "alcanzable", candidaturas: "todo" };
 let ofertas = [];
+let candidaturas = [];
 
 /* ---------- Acceso ---------- */
 async function arrancar(){
@@ -170,6 +180,28 @@ $("#btnEntrar").onclick = async () => {
 };
 $("#btnSalir").onclick = async () => { await bd.auth.signOut(); location.reload(); };
 
+/* La ingesta corre en GitHub, no aqui: abrirla alli evita guardar una
+   credencial de GitHub dentro de la pagina. Un clic mas, cero riesgo. */
+$("#btnIngesta").onclick = () => {
+  window.open("https://github.com/Diosvely/AppEmpleo/actions/workflows/diario.yml",
+              "_blank", "noopener");
+};
+
+/* Buscador: un solo manejador para toda la app. Repinta sin volver a
+   pedir datos, asi que filtra mientras escribes. */
+$("#buscar").oninput = () => {
+  if(vista === "bandeja") pintarBandeja("");
+  else if(vista === "candidaturas") pintarCandidaturas();
+};
+
+function sinAcentos(t){
+  return String(t ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+function coincideBusqueda(campos){
+  const q = sinAcentos($("#buscar").value.trim());
+  return !q || sinAcentos(campos.filter(Boolean).join(" ")).includes(q);
+}
+
 /* ---------- Navegacion ---------- */
 document.querySelectorAll("nav button[data-vista]").forEach(b => b.onclick = () => {
   vista = b.dataset.vista;
@@ -182,7 +214,8 @@ document.querySelectorAll("nav button[data-vista]").forEach(b => b.onclick = () 
 async function cargar(){
   $("#titulo").textContent =
     { bandeja:"Bandeja", candidaturas:"Candidaturas", embudo:"Embudo" }[vista];
-  $("#filtros").hidden = vista !== "bandeja";
+  $("#filtros").hidden = vista === "embudo";
+  $("#buscar").hidden   = vista === "embudo";
   if(vista === "bandeja")      await cargarBandeja();
   else if(vista === "candidaturas") await cargarCandidaturas();
   else                          await cargarEmbudo();
@@ -222,24 +255,31 @@ function pintarBandeja(avisoHtml){
     ["B",          "Canal B"],
     ["todo",       "Todo"],
   ].map(([v,t]) =>
-    `<button class="chip" data-f="${v}" aria-pressed="${filtro===v}">${t}</button>`).join("");
+    `<button class="chip" data-f="${v}" aria-pressed="${filtros.bandeja===v}">${t}</button>`).join("");
   $("#filtros").querySelectorAll(".chip").forEach(c => c.onclick = () => {
-    filtro = c.dataset.f; pintarBandeja(avisoHtml);
+    filtros.bandeja = c.dataset.f; pintarBandeja(avisoHtml);
   });
 
-  const lista = ofertas.filter(o =>
-      filtro === "todo"   ? true
-    : filtro === "A"      ? o.canal.includes("A")
-    : filtro === "B"      ? o.canal.includes("B")
-    :                      o.alcance === filtro);
+  const f = filtros.bandeja;
+  const lista = ofertas
+    .filter(o => f === "todo" ? true
+               : f === "A"    ? o.canal.includes("A")
+               : f === "B"    ? o.canal.includes("B")
+               :                o.alcance === f)
+    .filter(o => coincideBusqueda([o.titulo, o.empresa, o.provincia, o.municipio]));
 
-  $("#resumen").textContent = alcanzables
-    ? `${alcanzables} ofertas te encajan y esperan decisión.`
-    : `Ninguna oferta nueva encaja hoy. Quedan ${revisar} por mirar.`;
+  const buscando = $("#buscar").value.trim();
+  $("#resumen").textContent = buscando
+    ? `${lista.length} ${lista.length === 1 ? "coincidencia" : "coincidencias"} con «${buscando}».`
+    : alcanzables
+      ? `${alcanzables} ofertas te encajan y esperan decisión.`
+      : `Ninguna oferta nueva encaja hoy. Quedan ${revisar} por mirar.`;
 
   if(!lista.length){
     $("#contenido").innerHTML = avisoHtml + `<div class="vacio">
-      <strong>Nada por aquí</strong>Prueba con otro filtro, o espera a la ingesta de mañana.</div>`;
+      <strong>Nada por aquí</strong>${buscando
+        ? "Ninguna oferta coincide con esa búsqueda. Prueba con menos palabras."
+        : "Prueba con otro filtro, o espera a la ingesta de mañana."}</div>`;
     return;
   }
 
@@ -270,23 +310,76 @@ function pintarBandeja(avisoHtml){
 }
 
 async function cargarCandidaturas(){
-  const { data, error } = await bd.from("v_candidaturas").select("*").limit(200);
-  if(error || !data?.length){
+  $("#resumen").textContent = "Cargando…";
+  const { data, error } = await bd.from("v_candidaturas").select("*").limit(300);
+  if(error){
+    $("#filtros").innerHTML = "";
+    $("#resumen").textContent = "";
+    $("#contenido").innerHTML = `<div class="aviso">No se pudo cargar tus
+      candidaturas. Comprueba tu conexión y vuelve a entrar.</div>`;
+    return;
+  }
+  candidaturas = data || [];
+  pintarCandidaturas();
+}
+
+function pintarCandidaturas(){
+  if(!candidaturas.length){
+    $("#filtros").innerHTML = "";
     $("#resumen").textContent = "";
     $("#contenido").innerHTML = `<div class="vacio"><strong>Aún no has aplicado a nada</strong>
       Cuando marques una oferta como aplicada, aparecerá aquí con su seguimiento.</div>`;
     return;
   }
-  const aplicadas = data.filter(c => c.fecha_aplicacion).length;
-  $("#resumen").textContent = `${aplicadas} candidaturas enviadas.`;
-  $("#contenido").innerHTML = data.map(c => `
+
+  // "entrevista" agrupa primera y segunda: para ti es la misma fase util
+  const GRUPOS = {
+    aplicada:   c => c.estado === "aplicada",
+    contactado: c => c.estado === "contactado",
+    entrevista: c => c.estado === "entrevista" || c.estado === "segunda_entrevista",
+    cerrada:    c => ["rechazado","sin_respuesta","oferta_recibida"].includes(c.estado),
+    descartada: c => c.estado === "descartada",
+    todo:       () => true,
+  };
+  const n = k => candidaturas.filter(GRUPOS[k]).length;
+
+  $("#filtros").innerHTML = [
+    ["aplicada",   `Aplicadas · ${n("aplicada")}`],
+    ["contactado", `Me contactaron · ${n("contactado")}`],
+    ["entrevista", `Entrevista · ${n("entrevista")}`],
+    ["cerrada",    `Cerradas · ${n("cerrada")}`],
+    ["descartada", `Descartadas · ${n("descartada")}`],
+    ["todo",       `Todas · ${candidaturas.length}`],
+  ].map(([v,t]) =>
+    `<button class="chip" data-f="${v}" aria-pressed="${filtros.candidaturas===v}">${t}</button>`).join("");
+  $("#filtros").querySelectorAll(".chip").forEach(c => c.onclick = () => {
+    filtros.candidaturas = c.dataset.f; pintarCandidaturas();
+  });
+
+  const lista = candidaturas
+    .filter(GRUPOS[filtros.candidaturas] || GRUPOS.todo)
+    .filter(c => coincideBusqueda([c.titulo, c.empresa, c.provincia]));
+
+  const buscando = $("#buscar").value.trim();
+  $("#resumen").textContent = buscando
+    ? `${lista.length} ${lista.length === 1 ? "coincidencia" : "coincidencias"} con «${buscando}».`
+    : `${n("aplicada") + n("contactado") + n("entrevista") + n("cerrada")} candidaturas enviadas.`;
+
+  if(!lista.length){
+    $("#contenido").innerHTML = `<div class="vacio"><strong>Nada por aquí</strong>${buscando
+      ? "Ninguna candidatura coincide con esa búsqueda."
+      : "No tienes candidaturas en ese estado."}</div>`;
+    return;
+  }
+
+  $("#contenido").innerHTML = lista.map(c => `
     <article class="oferta">
       <h2>${escapar(c.titulo)}</h2>
       <p class="meta">${escapar(c.empresa || "Empresa no indicada")} · ${escapar(c.provincia || "España")}</p>
       <div class="marcas">
-        <span class="marca si">${c.estado.replace(/_/g," ")}</span>
+        <span class="marca ${c.estado === "descartada" ? "" : "si"}">${c.estado.replace(/_/g," ")}</span>
         ${c.cv_usado ? `<span class="marca">CV ${escapar(c.cv_usado)}</span>` : ""}
-        <span class="marca">${c.dias_sin_novedad} días sin novedad</span>
+        <span class="marca">${antiguedad(c.dias_sin_novedad)}</span>
       </div>
       <div class="acciones">
         <a class="principal" href="${c.url}" target="_blank" rel="noopener">Ver oferta</a>
@@ -354,6 +447,11 @@ async function mover(id, estado, cv = null){
     return;
   }
   cargar();
+}
+
+function antiguedad(dias){
+  if(dias <= 0) return "movida hoy";
+  return dias === 1 ? "1 día sin novedad" : `${dias} días sin novedad`;
 }
 
 function escapar(t){
