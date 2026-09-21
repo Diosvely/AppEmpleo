@@ -182,6 +182,7 @@ src/db.py                         acceso a Supabase con reintentos
 src/probar.py                     prueba en seco, sin internet ni base de datos
 web/index.html                    la aplicación
 build.js                          compilación e inyección de credenciales
+CHANGELOG.md                      historial de versiones
 wrangler.toml                     despliegue en Cloudflare Workers
 docs/                             capturas para este README
 ```

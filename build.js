@@ -24,6 +24,10 @@ const SUSTITUCIONES = {
   __SUPABASE_URL__: process.env.SUPABASE_URL,
   __SUPABASE_CLAVE_PUBLICA__: process.env.SUPABASE_CLAVE_PUBLICA,
   __REPO_GITHUB__: process.env.REPO_GITHUB || "",
+  // Cloudflare pone el commit en WORKERS_CI_COMMIT_SHA. En tu ordenador no
+  // existe, y entonces la etiqueta dice "local" para que se note.
+  __COMMIT__: (process.env.WORKERS_CI_COMMIT_SHA || "local").slice(0, 7),
+  __FECHA_COMPILACION__: new Date().toISOString().slice(0, 10),
 };
 
 // Sin estas dos la pagina no puede hablar con la base de datos.
@@ -100,6 +104,14 @@ function generarDemo() {
     throw new Error("No encuentro el bloque de conexion en index.html");
   }
   html = html.slice(0, i) + demo + html.slice(j + FIN_CONEXION.length);
+
+  // La demostracion tambien lleva version y commit, no las credenciales,
+  // que ya no existen en ella porque su bloque de conexion se ha sustituido.
+  for (const m of ["__COMMIT__", "__FECHA_COMPILACION__"]) {
+    html = html.split(m).join(SUSTITUCIONES[m]);
+  }
+  const sueltos = html.match(/__[A-Z_]+__/g);
+  if (sueltos) throw new Error(`demo.html conserva marcadores: ${[...new Set(sueltos)]}`);
 
   html = html.replace("<title>AppEmpleo</title>",
                       "<title>AppEmpleo · demostración</title>");

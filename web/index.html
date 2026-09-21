@@ -83,6 +83,11 @@ nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--tarjeta
     border-top:1px solid var(--linea);padding-bottom:env(safe-area-inset-bottom)}
 nav button{flex:1;padding:.7rem .2rem;font-size:.78rem;color:var(--apagado);white-space:nowrap}
 nav .accion{flex:0 0 auto;padding:.7rem .8rem;font-size:.74rem}
+/* Version en la esquina: dice de un vistazo que despliegue estas viendo */
+header{position:sticky}
+.version{position:absolute;top:1.25rem;right:1rem;font-size:.72rem;
+         color:var(--apagado);font-variant-numeric:tabular-nums}
+.acceso .version{position:static;display:block;text-align:center;margin-top:1rem}
 nav button[aria-current="page"]{color:var(--accion);font-weight:600;
     box-shadow:inset 0 2px 0 var(--accion)}
 
@@ -117,10 +122,12 @@ th{color:var(--apagado);font-weight:500}
   <input id="correo" type="email" placeholder="Correo" autocomplete="username">
   <input id="clave" type="password" placeholder="Contraseña" autocomplete="current-password">
   <button id="btnEntrar">Entrar</button>
+  <span class="version"></span>
 </div>
 
 <div id="app" hidden>
   <header>
+    <span class="version"></span>
     <h1 id="titulo">Bandeja</h1>
     <p class="resumen" id="resumen">Cargando…</p>
     <div class="filtros" id="filtros"></div>
@@ -157,6 +164,15 @@ th{color:var(--apagado);font-weight:500}
    aplicacion de cliente y solo permite lo que la seguridad a nivel de
    fila deje pasar. La clave secreta NO se pone aqui jamas.
    ================================================================= */
+/* VERSION: es la unica linea que tocas cuando hagas cambios.
+   El commit y la fecha los pone build.js al desplegar. */
+const VERSION = "1.0.0";
+const COMPILACION = { commit: "__COMMIT__", fecha: "__FECHA_COMPILACION__" };
+document.querySelectorAll(".version").forEach(e => {
+  e.textContent = `v${VERSION} · ${COMPILACION.commit}`;
+  e.title = `Compilada el ${COMPILACION.fecha} desde el commit ${COMPILACION.commit}`;
+});
+
 const SUPABASE_URL = "__SUPABASE_URL__";
 const SUPABASE_CLAVE_PUBLICA = "__SUPABASE_CLAVE_PUBLICA__";
 const REPO_GITHUB = "__REPO_GITHUB__";
