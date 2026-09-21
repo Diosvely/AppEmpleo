@@ -18,3 +18,4 @@ Primera versión pública.
 - Acceso atado a un único propietario y vistas que respetan esa seguridad.
 - Credenciales fuera del código, inyectadas al desplegar en Cloudflare Workers.
 - Demostración con datos inventados, generada desde la misma aplicación.
+- 
