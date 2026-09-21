@@ -1,0 +1,19 @@
+# Cloudflare Workers — sitio estatico.
+#
+# La carpeta dist/ la genera build.js, que no se sube al repositorio:
+# se construye en cada despliegue sustituyendo los marcadores de
+# posicion por las variables de compilacion.
+#
+# En el panel de Cloudflare, dentro de tu Worker:
+#   Settings > Build > comando de compilacion:  node build.js
+#   Settings > Build > comando de despliegue:   npx wrangler deploy
+#   Variables de compilacion: SUPABASE_URL, SUPABASE_CLAVE_PUBLICA, REPO_GITHUB
+
+# ATENCION: este nombre TIENE que ser identico al del Worker en el panel
+# de Cloudflare. Si no coincide, la compilacion falla antes de desplegar.
+name = "raspy-lake-6eca"
+compatibility_date = "2026-09-20"
+
+[assets]
+directory = "./dist"
+

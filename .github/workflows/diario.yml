@@ -1,0 +1,40 @@
+name: Ingesta diaria
+
+on:
+  schedule:
+    # 06:15 UTC = 07:15 en Canarias. Ajusta la hora si quieres.
+    - cron: "15 6 * * *"
+  workflow_dispatch:        # permite lanzarlo a mano desde la web
+
+permissions:
+  contents: read            # solo lee el codigo: nunca escribe en el repositorio
+
+concurrency:
+  group: ingesta
+  cancel-in-progress: false
+
+jobs:
+  ingesta:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Ejecutar la ingesta
+        env:
+          ADZUNA_APP_ID:        ${{ secrets.ADZUNA_APP_ID }}
+          ADZUNA_APP_KEY:       ${{ secrets.ADZUNA_APP_KEY }}
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GMAIL_USUARIO:        ${{ secrets.GMAIL_USUARIO }}
+          GMAIL_APP_PASSWORD:   ${{ secrets.GMAIL_APP_PASSWORD }}
+          SALARIO_NETO_MINIMO:  ${{ secrets.SALARIO_NETO_MINIMO }}
+        run: python src/main.py

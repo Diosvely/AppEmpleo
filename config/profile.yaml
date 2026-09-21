@@ -1,0 +1,280 @@
+# =====================================================================
+#  PERFIL DE BUSQUEDA
+#
+#  Este es el UNICO archivo que necesitas tocar para cambiar criterios.
+#  No hace falta saber programar. Solo dos reglas:
+#    1. Respeta los espacios del principio de cada linea (la sangria).
+#    2. Las listas empiezan con un guion y un espacio:  - asi
+#  Si un texto lleva acentos, comas o dos puntos, ponlo entre comillas.
+# =====================================================================
+
+# ---------------------------------------------------------------------
+# SALARIO
+# Importante: el salario NO se usa para descartar ofertas, solo para
+# etiquetarlas. La mayoria de ofertas espanolas no publican sueldo y no
+# queremos perderlas.
+# ---------------------------------------------------------------------
+salario:
+  # Valor de ejemplo. El tuyo real ponlo en el secreto de GitHub
+  # SALARIO_NETO_MINIMO: si existe, tiene prioridad sobre este numero.
+  # Asi tu salario no queda publicado en un repositorio publico.
+  neto_mensual_minimo: 1200      # por debajo de esto -> "no cumple"
+
+  # Conversion aproximada de neto mensual a bruto anual.
+  # PENDIENTE DE CALIBRAR con una calculadora de nomina real.
+  # Formula usada: neto_mensual * pagas_anuales * factor_neto_a_bruto
+  pagas_anuales: 14
+  factor_neto_a_bruto: 1.28
+
+# ---------------------------------------------------------------------
+# CONTRATO
+# ---------------------------------------------------------------------
+contrato:
+  aceptados:
+    - indefinido
+    - temporal
+  excluidos:
+    - practicas
+    - beca
+
+# ---------------------------------------------------------------------
+# PALABRAS QUE DESCARTAN UNA OFERTA
+# Si el titulo contiene alguna de estas, la oferta se ignora aunque
+# coincida con un sinonimo. Anade las que veas que ensucian.
+# ---------------------------------------------------------------------
+exclusiones_titulo:
+  - comercial
+  - teleoperador
+  - teleoperadora
+  - camarero
+  - camarera
+  - cocinero
+  - recepcionista
+  - dependiente
+  - dependienta
+  - repartidor
+  - conductor
+  - limpieza
+  - becario
+  - becaria
+  - practicas
+  - internship
+  - trainee
+  - vendedor
+  - vendedora
+  - promotor
+  - promotora
+  - captador
+  - captadora
+  - intern
+  - interna de datos
+  - stage
+  - graduate program
+  - "online data analyst"
+  - rater
+  - evaluador de busqueda
+  - encuestador
+  - encuestadora
+
+# ---------------------------------------------------------------------
+# NIVEL DEL PUESTO
+# No descarta nada: solo etiqueta, para que puedas apartar de un vistazo
+# lo que te queda grande o pequeno sin perderlo de vista.
+# ---------------------------------------------------------------------
+niveles:
+  directivo: [director, directora, "head of", chief, cfo, cdo, vp, "vice president"]
+  lead: [lead, manager, jefe, jefa, responsable, principal, "team lead"]
+  senior: [senior, sr, experto, experta]
+  junior: [junior, jr, becario, trainee, graduate, "recien titulado", entry]
+
+# ---------------------------------------------------------------------
+# CANALES
+#
+#  consultas_api : lo que se le pide a Adzuna. Pocas y amplias, porque
+#                  cada consulta gasta cupo de la API.
+#  grupos        : como se clasifica despues, en local y sin coste.
+#                  prioridad 1 = lo que mas te interesa, 4 = lo ultimo.
+# ---------------------------------------------------------------------
+canales:
+
+  A:
+    nombre: "Economia y control de gestion"
+    prioridad: 1
+    geografia:
+      presencial_provincias:
+        - "Santa Cruz de Tenerife"
+        - "Las Palmas"
+      acepta_remoto: true
+      acepta_hibrido: true
+      ambito_remoto: "Espana"
+    consultas_api:
+      - texto: "controller"
+        paginas: 3
+      - texto: "control de gestion"
+        paginas: 3
+      - texto: "analista financiero"
+        paginas: 3
+      - texto: "analista de costes"
+        paginas: 3
+      - texto: "responsable financiero"
+        paginas: 2
+      # "contable" devuelve muchisimo y aporta poco: se le baja el volumen
+      - texto: "contable"
+        paginas: 1
+      - texto: "administrativo contable"
+        paginas: 1
+    grupos:
+      - grupo: "Controller"
+        prioridad: 1
+        sinonimos:
+          - "controller"
+          - "controller financiero"
+          - "controller de gestion"
+          - "controller de costes"
+          - "controller industrial"
+          - "business controller"
+          - "cost controller"
+          - "financial controller"
+          - "controlling"
+      - grupo: "Control de gestion"
+        prioridad: 1
+        sinonimos:
+          - "control de gestion"
+          - "control financiero"
+          - "control economico"
+          - "control presupuestario"
+          - "analista de control de gestion"
+          - "tecnico de control de gestion"
+          - "responsable de control de gestion"
+          - "planificacion y control"
+      - grupo: "Costes"
+        prioridad: 1
+        sinonimos:
+          - "analista de costes"
+          - "analista de coste"
+          - "responsable de costes"
+          - "tecnico de costes"
+          - "contabilidad analitica"
+          - "escandallos"
+      - grupo: "Analisis financiero"
+        prioridad: 2
+        sinonimos:
+          - "analista financiero"
+          - "analista de finanzas"
+          - "financial analyst"
+          - "fp&a"
+          - "fpa"
+          - "planificacion financiera"
+          - "analista de negocio financiero"
+          - "financial reporting"
+          - "reporting financiero"
+          - "analista de reporting financiero"
+      - grupo: "Responsable financiero"
+        prioridad: 2
+        sinonimos:
+          - "responsable financiero"
+          - "responsable de administracion"
+          - "responsable administrativo financiero"
+          - "jefe de administracion"
+          - "director financiero"
+          - "finance manager"
+      - grupo: "Contabilidad"
+        prioridad: 3
+        sinonimos:
+          - "contable"
+          - "contable general"
+          - "tecnico contable"
+          - "contable senior"
+      - grupo: "Administrativo contable"
+        prioridad: 4     # prioridad baja a proposito: suele pagar poco
+        sinonimos:
+          - "administrativo contable"
+          - "auxiliar contable"
+          - "auxiliar administrativo contable"
+          - "administrativo financiero"
+
+  B:
+    nombre: "Datos y BI"
+    prioridad: 1
+    geografia:
+      presencial_provincias:
+        - "Santa Cruz de Tenerife"
+        - "Las Palmas"
+      acepta_remoto: true
+      acepta_hibrido: true
+      ambito_remoto: "Espana"
+    consultas_api:
+      - texto: "analista de datos"
+        paginas: 3
+      - texto: "data analyst"
+        paginas: 3
+      - texto: "business intelligence"
+        paginas: 3
+      - texto: "power bi"
+        paginas: 3
+      - texto: "analytics"
+        paginas: 3
+    grupos:
+      - grupo: "Analista de datos"
+        prioridad: 1
+        sinonimos:
+          - "analista de datos"
+          - "data analyst"
+          - "analista de informacion"
+          - "analista de reporting"
+      - grupo: "BI"
+        prioridad: 1
+        sinonimos:
+          - "analista bi"
+          - "bi analyst"
+          - "business intelligence"
+          - "analista business intelligence"
+          - "desarrollador bi"
+          - "bi developer"
+          - "consultor bi"
+          - "especialista bi"
+      - grupo: "Power BI y Fabric"
+        prioridad: 1
+        sinonimos:
+          - "power bi"
+          - "analista power bi"
+          - "consultor power bi"
+          - "desarrollador power bi"
+          - "microsoft fabric"
+          - "consultor fabric"
+      - grupo: "Analytics Engineer"
+        prioridad: 2
+        sinonimos:
+          - "analytics engineer"
+          - "ingeniero analitico"
+          - "consultor de datos"
+          - "consultor de analitica"
+      - grupo: "Data Engineer"
+        prioridad: 3
+        sinonimos:
+          - "data engineer"
+          - "ingeniero de datos"
+          - "etl"
+          - "data warehouse"
+
+# ---------------------------------------------------------------------
+# ALERTAS POR CORREO
+# Cuantos dias hacia atras se miran las etiquetas de Gmail. Se puede subir
+# puntualmente para recuperar correos viejos: los duplicados se descartan
+# solos, asi que no hay riesgo.
+# ---------------------------------------------------------------------
+correo:
+  dias_atras: 30
+
+# ---------------------------------------------------------------------
+# LIMITES DE LA API
+# El plan de prueba de Adzuna tiene cupo. Estos topes evitan pasarse.
+# ---------------------------------------------------------------------
+adzuna:
+  pais: "es"
+  resultados_por_pagina: 50
+  paginas_por_consulta: 3
+  dias_maximos_antiguedad: 30
+  buscar_solo_en_titulo: true
+  maximo_llamadas_por_ejecucion: 60
+  segundos_entre_llamadas: 1.5

@@ -1,0 +1,16 @@
+raw/
+dist/
+node_modules/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.env.*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Temporales de Cloudflare
+.wrangler/

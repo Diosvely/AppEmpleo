@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#16202B">
+<title>AppEmpleo</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>&#128188;</text></svg>">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+/* ---------------------------------------------------------------
+   CONFIGURACION VISUAL
+   El color codifica informacion, no decora: verde = te encaja,
+   ambar = hay que mirarlo. Nada mas lleva color.
+   --------------------------------------------------------------- */
+:root{
+  --lienzo:#EDF1F4; --tarjeta:#FFF; --tinta:#16202B; --apagado:#5C6B7A;
+  --linea:#D5DDE4; --si:#0F6B52; --si-suave:#E3F2EC;
+  --quiza:#8A5206; --quiza-suave:#FBEEDC; --accion:#1F4E79;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --serif:"Iowan Old Style",Palatino,"Palatino Linotype",Georgia,serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+/* Sin esto, un display: declarado en CSS gana al atributo hidden y el
+   elemento sigue viendose aunque el codigo lo haya ocultado. */
+[hidden]{display:none !important}
+body{margin:0;background:var(--lienzo);color:var(--tinta);font-family:var(--sans);
+     font-size:16px;line-height:1.45;padding-bottom:5.5rem}
+button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
+a{color:var(--accion)}
+:focus-visible{outline:2.5px solid var(--accion);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* Cabecera */
+header{position:sticky;top:0;z-index:20;background:var(--lienzo);
+       padding:1rem 1rem .5rem;border-bottom:1px solid var(--linea)}
+h1{margin:0;font-family:var(--serif);font-size:1.5rem;font-weight:600;letter-spacing:-.01em}
+.resumen{margin:.15rem 0 .7rem;color:var(--apagado);font-size:.93rem}
+.filtros{display:flex;gap:.4rem;overflow-x:auto;padding-bottom:.35rem;scrollbar-width:none}
+.filtros::-webkit-scrollbar{display:none}
+.chip{white-space:nowrap;padding:.32rem .75rem;border:1px solid var(--linea);
+      border-radius:999px;background:var(--tarjeta);font-size:.86rem;color:var(--apagado)}
+.chip[aria-pressed="true"]{background:var(--tinta);border-color:var(--tinta);color:#fff}
+#buscar{width:100%;margin-top:.5rem;padding:.5rem .7rem;border:1px solid var(--linea);
+        border-radius:8px;font:inherit;font-size:.9rem;background:var(--tarjeta);color:var(--tinta)}
+#buscar::placeholder{color:var(--apagado)}
+
+/* Lista */
+main{padding:.85rem 1rem}
+.oferta{background:var(--tarjeta);border:1px solid var(--linea);border-radius:10px;
+        padding:.9rem;margin-bottom:.7rem;border-left:4px solid var(--linea)}
+.oferta.alcanzable{border-left-color:var(--si)}
+.oferta.revisar{border-left-color:var(--quiza)}
+.oferta h2{margin:0 0 .3rem;font-family:var(--serif);font-size:1.12rem;
+           font-weight:600;line-height:1.3}
+.meta{color:var(--apagado);font-size:.88rem;margin-bottom:.55rem}
+.marcas{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.7rem}
+.marca{font-size:.76rem;padding:.16rem .5rem;border-radius:4px;background:#EEF2F5;color:var(--apagado)}
+.marca.si{background:var(--si-suave);color:var(--si)}
+.marca.quiza{background:var(--quiza-suave);color:var(--quiza)}
+.acciones{display:flex;gap:.45rem}
+.acciones button,.acciones a{flex:1;text-align:center;padding:.55rem .3rem;border-radius:7px;
+  font-size:.88rem;font-weight:500;border:1px solid var(--linea);background:var(--tarjeta);
+  text-decoration:none;color:var(--tinta)}
+/* La especificidad importa: .acciones a gana a .principal a secas, y dejaba
+   el fondo blanco con el texto blanco encima. Se iguala el alcance. */
+.acciones .principal{background:var(--accion);border-color:var(--accion);color:#fff}
+
+/* Hoja de aplicacion */
+dialog{border:none;border-radius:14px 14px 0 0;padding:1.2rem;width:100%;max-width:520px;
+       margin:auto auto 0;background:var(--tarjeta);color:var(--tinta)}
+dialog::backdrop{background:rgba(16,32,43,.45)}
+dialog h3{margin:0 0 .2rem;font-family:var(--serif);font-size:1.15rem}
+dialog p{margin:0 0 1rem;color:var(--apagado);font-size:.9rem}
+.opciones{display:flex;flex-direction:column;gap:.5rem;margin-bottom:.8rem}
+.opciones button{padding:.75rem;border:1px solid var(--linea);border-radius:8px;text-align:left}
+.opciones button:hover{border-color:var(--accion)}
+textarea{width:100%;border:1px solid var(--linea);border-radius:8px;padding:.6rem;
+         font:inherit;font-size:.92rem;resize:vertical;min-height:3.2rem}
+
+/* Pie de navegacion */
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--tarjeta);
+    border-top:1px solid var(--linea);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;padding:.7rem .2rem;font-size:.78rem;color:var(--apagado);white-space:nowrap}
+nav .accion{flex:0 0 auto;padding:.7rem .8rem;font-size:.74rem}
+nav button[aria-current="page"]{color:var(--accion);font-weight:600;
+    box-shadow:inset 0 2px 0 var(--accion)}
+
+/* Estados vacios y avisos */
+.vacio{text-align:center;padding:3rem 1.5rem;color:var(--apagado)}
+.vacio strong{display:block;font-family:var(--serif);font-size:1.2rem;color:var(--tinta);margin-bottom:.4rem}
+.aviso{background:#FDF0EF;border:1px solid #F0C6C2;color:#8C2F26;padding:.7rem .9rem;
+       border-radius:8px;margin-bottom:.8rem;font-size:.9rem}
+.sinred{background:var(--quiza-suave);border-color:#EBD3A8;color:var(--quiza)}
+
+/* Acceso */
+.acceso{max-width:340px;margin:16vh auto;padding:0 1.2rem}
+.acceso input{width:100%;padding:.7rem;margin-bottom:.6rem;border:1px solid var(--linea);
+              border-radius:8px;font:inherit}
+.acceso button{width:100%;padding:.75rem;border-radius:8px;background:var(--accion);color:#fff;font-weight:600}
+
+/* Embudo */
+.fase{display:grid;grid-template-columns:8.5rem 1fr 2.5rem;align-items:center;gap:.6rem;
+      margin-bottom:.5rem;font-size:.9rem}
+.barra{height:1.6rem;background:var(--accion);border-radius:4px;min-width:2px}
+table{width:100%;border-collapse:collapse;font-size:.88rem;margin-top:1.2rem}
+th,td{text-align:left;padding:.45rem .4rem;border-bottom:1px solid var(--linea)}
+th{color:var(--apagado);font-weight:500}
+</style>
+</head>
+<body>
+
+<div id="acceso" class="acceso" hidden>
+  <h1>AppEmpleo</h1>
+  <p class="resumen">Entra con la cuenta que creaste en Supabase.</p>
+  <div id="errorAcceso"></div>
+  <input id="correo" type="email" placeholder="Correo" autocomplete="username">
+  <input id="clave" type="password" placeholder="Contraseña" autocomplete="current-password">
+  <button id="btnEntrar">Entrar</button>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <h1 id="titulo">Bandeja</h1>
+    <p class="resumen" id="resumen">Cargando…</p>
+    <div class="filtros" id="filtros"></div>
+    <input id="buscar" type="search" inputmode="search" autocomplete="off"
+           placeholder="Buscar empresa, puesto o ciudad">
+  </header>
+  <main id="contenido"></main>
+  <nav>
+    <button data-vista="bandeja" aria-current="page">Bandeja</button>
+    <button data-vista="candidaturas">Candidaturas</button>
+    <button data-vista="embudo">Embudo</button>
+    <button class="accion" id="btnIngesta">Ingestar</button>
+    <button class="accion" id="btnSalir">Salir</button>
+  </nav>
+</div>
+
+<dialog id="hoja">
+  <h3 id="hojaTitulo">Marcar como aplicada</h3>
+  <p id="hojaOferta"></p>
+  <div class="opciones" id="hojaOpciones"></div>
+  <textarea id="hojaNotas" placeholder="Notas (opcional)"></textarea>
+  <div class="acciones" style="margin-top:.8rem">
+    <button onclick="document.getElementById('hoja').close()">Cancelar</button>
+  </div>
+</dialog>
+
+<script>
+/* =================================================================
+   CONFIGURACION
+   Estos marcadores los sustituye build.js al desplegar, leyendo las
+   variables de compilacion. Asi el repositorio puede ser publico sin
+   llevar dentro la direccion de la base de datos de nadie.
+   La clave publishable es publica por diseno: va dentro de cualquier
+   aplicacion de cliente y solo permite lo que la seguridad a nivel de
+   fila deje pasar. La clave secreta NO se pone aqui jamas.
+   ================================================================= */
+const SUPABASE_URL = "__SUPABASE_URL__";
+const SUPABASE_CLAVE_PUBLICA = "__SUPABASE_CLAVE_PUBLICA__";
+const REPO_GITHUB = "__REPO_GITHUB__";
+
+// Abrir el archivo directamente, sin compilar, deja los marcadores
+// puestos. Mejor decirlo que fallar con un error incomprensible.
+if (SUPABASE_URL.startsWith("__")) {
+  document.body.innerHTML = `<div style="max-width:32rem;margin:15vh auto;
+    padding:0 1.5rem;font-family:system-ui;line-height:1.5">
+    <h1 style="font-size:1.4rem">Falta configurar la conexión</h1>
+    <p>Esta página se despliega con un paso de compilación que inserta la
+    dirección de tu Supabase. Para verla en tu ordenador, ejecuta
+    <code>node build.js</code> con las variables puestas, o abre
+    <a href="demo.html">demo.html</a>, que funciona sin base de datos.</p></div>`;
+  throw new Error("Configuración pendiente");
+}
+
+const bd = supabase.createClient(SUPABASE_URL, SUPABASE_CLAVE_PUBLICA);
+const $ = s => document.querySelector(s);
+const CACHE = "appempleo:bandeja";
+
+let vista = "bandeja";
+// Cada vista recuerda su propio filtro: los de la bandeja no significan
+// nada en candidaturas, y al volver quieres encontrarlo como lo dejaste.
+let filtros = { bandeja: "alcanzable", candidaturas: "todo" };
+let ofertas = [];
+let candidaturas = [];
+
+/* ---------- Acceso ---------- */
+async function arrancar(){
+  const { data:{ session } } = await bd.auth.getSession();
+  if(session){ $("#acceso").hidden = true; $("#app").hidden = false; cargar(); }
+  else { $("#acceso").hidden = false; $("#app").hidden = true; }
+}
+$("#btnEntrar").onclick = async () => {
+  const { error } = await bd.auth.signInWithPassword({
+    email: $("#correo").value.trim(), password: $("#clave").value });
+  if(error) $("#errorAcceso").innerHTML =
+    `<div class="aviso">No se pudo entrar. Revisa el correo y la contraseña.</div>`;
+  else arrancar();
+};
+$("#btnSalir").onclick = async () => { await bd.auth.signOut(); location.reload(); };
+
+/* La ingesta corre en GitHub, no aqui: abrirla alli evita guardar una
+   credencial de GitHub dentro de la pagina. Un clic mas, cero riesgo.
+   Sin repositorio configurado, el boton no tiene a donde ir: se oculta. */
+if (!REPO_GITHUB) $("#btnIngesta").hidden = true;
+$("#btnIngesta").onclick = () => {
+  window.open(`https://github.com/${REPO_GITHUB}/actions/workflows/diario.yml`,
+              "_blank", "noopener");
+};
+
+/* Buscador: un solo manejador para toda la app. Repinta sin volver a
+   pedir datos, asi que filtra mientras escribes. */
+$("#buscar").oninput = () => {
+  if(vista === "bandeja") pintarBandeja("");
+  else if(vista === "candidaturas") pintarCandidaturas();
+};
+
+function sinAcentos(t){
+  return String(t ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+function coincideBusqueda(campos){
+  const q = sinAcentos($("#buscar").value.trim());
+  return !q || sinAcentos(campos.filter(Boolean).join(" ")).includes(q);
+}
+
+/* ---------- Navegacion ---------- */
+document.querySelectorAll("nav button[data-vista]").forEach(b => b.onclick = () => {
+  vista = b.dataset.vista;
+  document.querySelectorAll("nav button[data-vista]").forEach(o =>
+    o.setAttribute("aria-current", o === b ? "page" : "false"));
+  cargar();
+});
+
+/* ---------- Carga ---------- */
+async function cargar(){
+  $("#titulo").textContent =
+    { bandeja:"Bandeja", candidaturas:"Candidaturas", embudo:"Embudo" }[vista];
+  $("#filtros").hidden = vista === "embudo";
+  $("#buscar").hidden   = vista === "embudo";
+  if(vista === "bandeja")      await cargarBandeja();
+  else if(vista === "candidaturas") await cargarCandidaturas();
+  else                          await cargarEmbudo();
+}
+
+async function cargarBandeja(){
+  $("#resumen").textContent = "Cargando…";
+  const { data, error } = await bd.from("v_bandeja").select("*").limit(300);
+
+  if(error){
+    const guardado = localStorage.getItem(CACHE);
+    if(guardado){
+      ofertas = JSON.parse(guardado);
+      pintarBandeja(`<div class="aviso sinred">Sin conexión. Estás viendo la
+        última lista descargada. Los cambios no se guardarán hasta que vuelvas a tener red.</div>`);
+    } else {
+      $("#contenido").innerHTML = `<div class="aviso">No se pudo cargar la lista.
+        Comprueba tu conexión y vuelve a entrar.</div>`;
+      $("#resumen").textContent = "";
+    }
+    return;
+  }
+
+  ofertas = data;
+  localStorage.setItem(CACHE, JSON.stringify(data));
+  pintarBandeja("");
+}
+
+function pintarBandeja(avisoHtml){
+  const alcanzables = ofertas.filter(o => o.alcance === "alcanzable").length;
+  const revisar     = ofertas.filter(o => o.alcance === "revisar").length;
+
+  $("#filtros").innerHTML = [
+    ["alcanzable", `Te encaja · ${alcanzables}`],
+    ["revisar",    `Por mirar · ${revisar}`],
+    ["A",          "Canal A"],
+    ["B",          "Canal B"],
+    ["todo",       "Todo"],
+  ].map(([v,t]) =>
+    `<button class="chip" data-f="${v}" aria-pressed="${filtros.bandeja===v}">${t}</button>`).join("");
+  $("#filtros").querySelectorAll(".chip").forEach(c => c.onclick = () => {
+    filtros.bandeja = c.dataset.f; pintarBandeja(avisoHtml);
+  });
+
+  const f = filtros.bandeja;
+  const lista = ofertas
+    .filter(o => f === "todo" ? true
+               : f === "A"    ? o.canal.includes("A")
+               : f === "B"    ? o.canal.includes("B")
+               :                o.alcance === f)
+    .filter(o => coincideBusqueda([o.titulo, o.empresa, o.provincia, o.municipio]));
+
+  const buscando = $("#buscar").value.trim();
+  $("#resumen").textContent = buscando
+    ? `${lista.length} ${lista.length === 1 ? "coincidencia" : "coincidencias"} con «${buscando}».`
+    : alcanzables
+      ? `${alcanzables} ofertas te encajan y esperan decisión.`
+      : `Ninguna oferta nueva encaja hoy. Quedan ${revisar} por mirar.`;
+
+  if(!lista.length){
+    $("#contenido").innerHTML = avisoHtml + `<div class="vacio">
+      <strong>Nada por aquí</strong>${buscando
+        ? "Ninguna oferta coincide con esa búsqueda. Prueba con menos palabras."
+        : "Prueba con otro filtro, o espera a la ingesta de mañana."}</div>`;
+    return;
+  }
+
+  $("#contenido").innerHTML = avisoHtml + lista.map(o => {
+    const sueldo = o.salario_bruto_anual_min
+      ? `${(o.salario_bruto_anual_min/1000).toFixed(0)}–${(o.salario_bruto_anual_max/1000).toFixed(0)} mil €`
+      : null;
+    const marcas = [
+      o.alcance === "alcanzable" ? `<span class="marca si">Te encaja</span>`
+                                 : `<span class="marca quiza">Por confirmar</span>`,
+      o.modalidad !== "desconocida" ? `<span class="marca">${o.modalidad}</span>` : "",
+      sueldo ? `<span class="marca ${o.cumple_salario==="cumple"?"si":""}">${sueldo}</span>` : "",
+      o.nivel !== "desconocido" ? `<span class="marca">${o.nivel}</span>` : "",
+      `<span class="marca">Canal ${o.canal}</span>`,
+    ].join("");
+    return `<article class="oferta ${o.alcance}">
+      <h2>${escapar(o.titulo)}</h2>
+      <p class="meta">${escapar(o.empresa || "Empresa no indicada")}
+         · ${escapar(o.provincia || o.municipio || "España")}</p>
+      <div class="marcas">${marcas}</div>
+      <div class="acciones">
+        <a class="principal" href="${o.url}" target="_blank" rel="noopener">Ver oferta</a>
+        <button onclick="abrirHoja(${o.id}, '${escapar(o.titulo).replace(/'/g,"\\'")}')">Apliqué</button>
+        <button onclick="mover(${o.id}, 'descartada')">Descartar</button>
+      </div>
+    </article>`;
+  }).join("");
+}
+
+async function cargarCandidaturas(){
+  $("#resumen").textContent = "Cargando…";
+  const { data, error } = await bd.from("v_candidaturas").select("*").limit(300);
+  if(error){
+    $("#filtros").innerHTML = "";
+    $("#resumen").textContent = "";
+    $("#contenido").innerHTML = `<div class="aviso">No se pudo cargar tus
+      candidaturas. Comprueba tu conexión y vuelve a entrar.</div>`;
+    return;
+  }
+  candidaturas = data || [];
+  pintarCandidaturas();
+}
+
+function pintarCandidaturas(){
+  if(!candidaturas.length){
+    $("#filtros").innerHTML = "";
+    $("#resumen").textContent = "";
+    $("#contenido").innerHTML = `<div class="vacio"><strong>Aún no has aplicado a nada</strong>
+      Cuando marques una oferta como aplicada, aparecerá aquí con su seguimiento.</div>`;
+    return;
+  }
+
+  // "entrevista" agrupa primera y segunda: para ti es la misma fase util
+  const GRUPOS = {
+    aplicada:   c => c.estado === "aplicada",
+    contactado: c => c.estado === "contactado",
+    entrevista: c => c.estado === "entrevista" || c.estado === "segunda_entrevista",
+    cerrada:    c => ["rechazado","sin_respuesta","oferta_recibida"].includes(c.estado),
+    descartada: c => c.estado === "descartada",
+    todo:       () => true,
+  };
+  const n = k => candidaturas.filter(GRUPOS[k]).length;
+
+  $("#filtros").innerHTML = [
+    ["aplicada",   `Aplicadas · ${n("aplicada")}`],
+    ["contactado", `Me contactaron · ${n("contactado")}`],
+    ["entrevista", `Entrevista · ${n("entrevista")}`],
+    ["cerrada",    `Cerradas · ${n("cerrada")}`],
+    ["descartada", `Descartadas · ${n("descartada")}`],
+    ["todo",       `Todas · ${candidaturas.length}`],
+  ].map(([v,t]) =>
+    `<button class="chip" data-f="${v}" aria-pressed="${filtros.candidaturas===v}">${t}</button>`).join("");
+  $("#filtros").querySelectorAll(".chip").forEach(c => c.onclick = () => {
+    filtros.candidaturas = c.dataset.f; pintarCandidaturas();
+  });
+
+  const lista = candidaturas
+    .filter(GRUPOS[filtros.candidaturas] || GRUPOS.todo)
+    .filter(c => coincideBusqueda([c.titulo, c.empresa, c.provincia]));
+
+  const buscando = $("#buscar").value.trim();
+  $("#resumen").textContent = buscando
+    ? `${lista.length} ${lista.length === 1 ? "coincidencia" : "coincidencias"} con «${buscando}».`
+    : `${n("aplicada") + n("contactado") + n("entrevista") + n("cerrada")} candidaturas enviadas.`;
+
+  if(!lista.length){
+    $("#contenido").innerHTML = `<div class="vacio"><strong>Nada por aquí</strong>${buscando
+      ? "Ninguna candidatura coincide con esa búsqueda."
+      : "No tienes candidaturas en ese estado."}</div>`;
+    return;
+  }
+
+  $("#contenido").innerHTML = lista.map(c => `
+    <article class="oferta">
+      <h2>${escapar(c.titulo)}</h2>
+      <p class="meta">${escapar(c.empresa || "Empresa no indicada")} · ${escapar(c.provincia || "España")}</p>
+      <div class="marcas">
+        <span class="marca ${c.estado === "descartada" ? "" : "si"}">${c.estado.replace(/_/g," ")}</span>
+        ${c.cv_usado ? `<span class="marca">CV ${escapar(c.cv_usado)}</span>` : ""}
+        <span class="marca">${antiguedad(c.dias_sin_novedad)}</span>
+      </div>
+      <div class="acciones">
+        <a class="principal" href="${c.url}" target="_blank" rel="noopener">Ver oferta</a>
+        <button onclick="abrirSeguimiento(${c.oferta_id}, '${escapar(c.titulo).replace(/'/g,"\\'")}')">Actualizar</button>
+      </div>
+    </article>`).join("");
+}
+
+async function cargarEmbudo(){
+  const [emb, cvs] = await Promise.all([
+    bd.from("v_embudo").select("*"),
+    bd.from("v_rendimiento_cv").select("*"),
+  ]);
+  const datos = emb.data || [];
+  const tope = Math.max(1, ...datos.map(f => f.ofertas));
+  $("#resumen").textContent = "Cómo avanza tu búsqueda.";
+  $("#contenido").innerHTML =
+    datos.map(f => `<div class="fase">
+        <span>${f.estado.replace(/_/g," ")}</span>
+        <span class="barra" style="width:${(f.ofertas/tope*100).toFixed(0)}%"></span>
+        <span>${f.ofertas}</span>
+      </div>`).join("")
+    + `<table><thead><tr><th>CV</th><th>Aplicadas</th><th>Respuestas</th><th>Tasa</th></tr></thead>
+       <tbody>${(cvs.data||[]).map(c => `<tr><td>${escapar(c.cv)}</td><td>${c.aplicadas}</td>
+       <td>${c.contactos}</td><td>${c.tasa_respuesta_pct ?? "—"}%</td></tr>`).join("")}</tbody></table>`;
+}
+
+/* ---------- Movimientos ---------- */
+let ofertaActiva = null;
+
+function abrirHoja(id, titulo){
+  ofertaActiva = id;
+  $("#hojaTitulo").textContent = "¿Con qué CV aplicaste?";
+  $("#hojaOferta").textContent = titulo;
+  $("#hojaOpciones").innerHTML = ["Controller","Datos"]
+    .map(cv => `<button onclick="mover(${id},'aplicada','${cv}')">CV ${cv}</button>`).join("");
+  $("#hojaNotas").value = "";
+  $("#hoja").showModal();
+}
+
+function abrirSeguimiento(id, titulo){
+  ofertaActiva = id;
+  $("#hojaTitulo").textContent = "¿Qué ha pasado?";
+  $("#hojaOferta").textContent = titulo;
+  $("#hojaOpciones").innerHTML = [
+    ["contactado","Me han contactado"],
+    ["entrevista","Primera entrevista"],
+    ["segunda_entrevista","Segunda entrevista"],
+    ["oferta_recibida","Me han hecho oferta"],
+    ["rechazado","Me han descartado"],
+    ["sin_respuesta","Sin respuesta, la doy por perdida"],
+  ].map(([e,t]) => `<button onclick="mover(${id},'${e}')">${t}</button>`).join("");
+  $("#hojaNotas").value = "";
+  $("#hoja").showModal();
+}
+
+async function mover(id, estado, cv = null){
+  const notas = $("#hojaNotas").value.trim() || null;
+  $("#hoja").close();
+  const { error } = await bd.rpc("registrar_movimiento", {
+    p_oferta_id: id, p_estado: estado, p_cv: cv, p_canal: null, p_notas: notas });
+  if(error){
+    $("#contenido").insertAdjacentHTML("afterbegin",
+      `<div class="aviso">No se pudo guardar el cambio. Vuelve a intentarlo cuando tengas conexión.</div>`);
+    return;
+  }
+  cargar();
+}
+
+function antiguedad(dias){
+  if(dias <= 0) return "movida hoy";
+  return dias === 1 ? "1 día sin novedad" : `${dias} días sin novedad`;
+}
+
+function escapar(t){
+  return String(t ?? "").replace(/[&<>"]/g, c =>
+    ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+}
+
+arrancar();
+</script>
+</body>
+</html>
