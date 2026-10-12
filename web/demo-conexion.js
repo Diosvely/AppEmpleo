@@ -108,6 +108,8 @@ const bd = {
     const respuesta = { data: DEMO[tabla] || [], error: null };
     const consulta = {
       select: () => consulta,
+      order: () => consulta,
+      range: async () => respuesta,   // la demostracion cabe en una pagina
       limit: async () => respuesta,
       then: (fn) => fn(respuesta),
     };
